@@ -93,7 +93,7 @@ void mergeSort (int l_index, int r_index){
 }
 
 void * mergeSortHelper(void *arg){
-    int tnum = (int)arg;                    // thread number
+    long tnum = (long)arg;                    // thread number
     int l_index = tnum*nperthread;
     int r_index = (tnum+1)*nperthread - 1;
 
@@ -108,7 +108,7 @@ void * mergeSortHelper(void *arg){
     return NULL;
 }
 
-void merge_sorted_threads(int ntosort, int nsorted){
+void mergeSortedThreads(int ntosort, int nsorted){
 
     // pairwise sorting for the subsets of the array
     for(int i = 0; i < ntosort; i = i + 2) {
@@ -195,7 +195,7 @@ int main(int argc, char *argv[]){
     nlastthread = nrecords%nthreads;
 
     // create each thread
-    for(int i=0; i<nthreads; i++){
+    for(long i=0; i<nthreads; i++){
         pthread_create(&threads[i], NULL, mergeSortHelper, (void *)i);
     }
    
@@ -216,7 +216,11 @@ int main(int argc, char *argv[]){
 
     // write to file
     for(int i=0; i<nrecords; i++){
-        write(fd, (*records)[i].value, 100);
+        err = write(fd, (*records)[i].value, 100);
+        if(err == -1){
+            printf("Writing Failed\n");
+            return 1;
+        }
     }
 
     // close output file
