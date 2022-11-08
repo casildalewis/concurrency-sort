@@ -86,6 +86,7 @@ void *mergeSort(void *record){
     int r_index = sizeof(records)/sizeof(records[0]);
 
     mergeSortHelper(records, 0, r_index);
+    pthread_exit(&records);
 }
 
 int main(int argc, char *argv[]){
@@ -181,16 +182,16 @@ int main(int argc, char *argv[]){
     rec_t *sorted_recs[nthreads];
    
     for (int i = 0; i < nthreads; i++) {
-        rec_t *sorted_rec;
+        rec_t **sorted_rec;
         pthread_join(&threads[i], sorted_rec);
         sorted_recs[i] = sorted_rec;
-
+    }
     // unmap input data to address space
     err = munmap(ptr, statbuf.st_size);
     if(err != 0){
         printf("UnMapping Failed\n");
         return 1;
     }
-    
+
     return 0;
 }
