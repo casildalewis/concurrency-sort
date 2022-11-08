@@ -42,7 +42,7 @@ void merge(rec_t records[], int left,
     k = left; 
     while (i < left_size && j < right_size) 
     {
-        if (L[i] <= R[j]) 
+        if (L[i]->key <= R[j]->key) 
         {
             records[k] = L[i];
             i++;
