@@ -10,7 +10,7 @@
 
 typedef struct rec {
     int key;
-    int value[24]; // 96 bytes
+    char *value; // 100 bytes
 } rec_t;
 
 
@@ -44,12 +44,28 @@ int main(int argc, char *argv[]){
         return 1;
     }
 
-    printf("file size (bytes): %li\n", statbuf.st_size);
+    // printf("file size (bytes): %li\n", statbuf.st_size);
 
     close(fd);
 
     int nthreads = get_nprocs();
-    printf("nthreads: %i\n", nthreads);
+    // printf("nthreads: %i\n", nthreads);
+
+    pthread_t threads[nthreads];
+
+    int arrsze = statbuf.st_size/nthreads;
+    rec_t arr [arrsze];
+    char *r = ptr;
+    for(int i=0; i<nthreads-1; i++){
+        int idx = 0;
+        for (; r < ptr + arrsze * 100, r<ptr+statbuf.st_size*100; r += 100) {
+            arr[idx].key = *(int *)r;
+            arr[idx].value = r;
+            idx++;
+        }
+
+        pthread_create(&threads[i], NULL, mergeSort, )
+    }
 
 
     err = munmap(ptr, statbuf.st_size);
