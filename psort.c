@@ -160,7 +160,7 @@ int main(int argc, char *argv[]){
         pthread_create(&threads[i], NULL, mergeSort, &arr);
     }
 
-    int arrsze = statbuf.st_size%nthreads;
+    arrsze = statbuf.st_size%nthreads;
     rec_t lastarr[arrsze];
     int idx = 0;
     // populating input array
@@ -182,9 +182,9 @@ int main(int argc, char *argv[]){
     rec_t *sorted_recs[nthreads];
    
     for (int i = 0; i < nthreads; i++) {
-        rec_t **sorted_rec;
-        pthread_join(&threads[i], sorted_rec);
-        sorted_recs[i] = sorted_rec;
+        void *sorted_rec;
+        pthread_join(threads[i], &sorted_rec);
+        sorted_recs[i] = (rec_t*)sorted_rec;
     }
     // unmap input data to address space
     err = munmap(ptr, statbuf.st_size);
