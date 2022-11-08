@@ -13,6 +13,8 @@ typedef struct rec {
     int value[24]; // 96 bytes
 } rec_t;
 
+
+
 int main(int argc, char *argv[]){
 // wrong invokation
     if(argc!=3){
@@ -21,7 +23,7 @@ int main(int argc, char *argv[]){
     }
 
     const char *input = argv[1];
-    const char *output = argv[2];
+    //const char *output = argv[2];
 
     int fd = open(input, O_RDONLY);
     if(fd < 0){
@@ -36,16 +38,19 @@ int main(int argc, char *argv[]){
         exit(1);
     }
 
-    char *ptr = mmap(NULL,statbuf.st_size,PROT_READ|PROT_WRITE,MAP_SHARED,fd,0);
+    char *ptr = mmap(NULL,statbuf.st_size,PROT_READ,MAP_SHARED,fd,0);
     if(ptr == MAP_FAILED){
         printf("Mapping Failed\n");
         return 1;
     }
 
+    printf("file size (bytes): %li\n", statbuf.st_size);
 
     close(fd);
 
     int nthreads = get_nprocs();
+    printf("nthreads: %i\n", nthreads);
+
 
     err = munmap(ptr, statbuf.st_size);
     if(err != 0){
