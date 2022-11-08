@@ -11,95 +11,123 @@
 // TODO MS r_index-> r_index-1
 typedef struct rec {
     int key;
-    int value[24]; // 96 bytes
+    char * value; // 100 bytes
 } rec_t;
 
+int nperthread, nlastthread, nthreads, nrecords;
+rec_t (*records)[];
 
-typedef struct threadargs {
-    rec_t **records;
-    int size;
-} t_args;
+// Merges two subarrays of r[].
+// First subarray is r[l..m]
+// Second subarray is r[m+1..r]
+void merge(int left, int mid, int right)
+{
+    int i, j, k;
+    int size_left = mid - left + 1;
+    int size_right = right - mid;
+  
+    rec_t L[size_left], R[size_right];
+  
+    for (i = 0; i < size_left; i++)
+        L[i] = (*records)[left + i];
+    for (j = 0; j < size_right; j++)
+        R[j] = (*records)[mid + 1 + j];
+  
+    // Merge the temp arrays back into records[l..r]
 
-// // Merges two subarrays of arr[].
-// // First subarray is arr[l..m]
-// // Second subarray is arr[m+1..r]
-// void merge(rec_t records[], int left, int mid, int right)
-// {
-//     int i, j, k;
-//     int size_left = mid - left + 1;
-//     int size_right = right - mid;
+    // Initial index of first subarray
+    i = 0; 
   
-//     rec_t L[size_left], R[size_right];
+    // Initial index of second subarray
+    j = 0; 
   
-//     for (i = 0; i < size_left; i++)
-//         L[i] = records[left + i];
-//     for (j = 0; j < size_right; j++)
-//         R[j] = records[mid + 1 + j];
-  
-//     // Merge the temp arrays back 
-//     // into records[l..r]
-//     // Initial index of first subarray
-//     i = 0; 
-  
-//     // Initial index of second subarray
-//     j = 0; 
-  
-//     // Initial index of merged subarray
-//     k = left; 
-//     while (i < size_left && j < size_right) {
-//         if (L[i].key <= R[j].key) {
-//             records[k] = L[i];
-//             i++;
-//         }
-//         else {
-//             records[k] = R[j];
-//             j++;
-//         }
-//         k++;
-//     }
-  
-//     // Copy the remaining elements 
-//     // of L[], if there are any
-//     while (i < size_left) {
-//         records[k] = L[i];
-//         i++;
-//         k++;
-//     }
-  
-//     // Copy the remaining elements of 
-//     // R[], if there are any 
-//     while (j < size_right) {
-//         records[k] = R[j];
-//         j++;
-//         k++;
-//     }
-// }
-  
-// void mergeSortHelper (rec_t records[], int l_index, int r_index){
-//     if (l_index < r_index) {
-//         int mid_index = (l_index + r_index) / 2;
-  
-//         // Sort first and second halves
-//         mergeSortHelper(records, l_index, mid_index);
-//         mergeSortHelper(records, mid_index + 1, r_index);
-  
-//         merge(records, l_index, mid_index, r_index);
-//     }
-// }
+    // Initial index of merged subarray
+    k = left; 
+    while (i < size_left && j < size_right) {
+        if (L[i].key < R[j].key) {
+            (*records)[k] = L[i];
+            i++;
+        }
+        else if (L[i].key > R[j].key){
+            (*records)[k] = R[j];
+            j++;
+        } else{
+            (*records)[k] = L[i];
+            i++;
 
-void *mergeSort(void *record){
-    rec_t *records = (rec_t *)record;
-    int r_index = sizeof(*records)/sizeof(records[0]);
+            k++;
 
-    printf("thread: ");
-
-    for(int i=0; i<r_index; i++){
-        printf("%i ", records[i].key);
+            (*records)[k] = R[j];
+            j++;
+        }
+        k++;
     }
-    printf("\n");
+  
+    // Copy the remaining elements 
+    // of L[], if there are any
+    while (i < size_left) {
+        (*records)[k] = L[i];
+        i++;
+        k++;
+    }
+  
+    // Copy the remaining elements of 
+    // R[], if there are any 
+    while (j < size_right) {
+        (*records)[k] = R[j];
+        j++;
+        k++;
+    }
+}
+  
+void mergeSort (int l_index, int r_index){
+    if (l_index < r_index) {
+        int mid_index = l_index + (r_index - l_index) / 2;
+  
+        // Sort first and second halves
+        mergeSort(l_index, mid_index);
+        mergeSort(mid_index + 1, r_index);
+  
+        merge(l_index, mid_index, r_index);
+    }
+}
 
-    // mergeSortHelper(records, 0, r_index);
-    pthread_exit(NULL);
+void * mergeSortHelper(void *arg){
+    int tnum = (int)arg;                    // thread number
+    int l_index = tnum*nperthread;
+    int r_index = (tnum+1)*nperthread - 1;
+
+    // if last thread, add leftover records to it
+    if(tnum==nthreads-1){
+        r_index+=nlastthread;
+    }
+
+    //merge sort only a given subset of the array
+    mergeSort(l_index, r_index);
+    
+    return NULL;
+}
+
+void merge_sorted_threads(int ntosort, int nsorted){
+
+    // pairwise sorting for the subsets of the array
+    for(int i = 0; i < ntosort; i = i + 2) {
+        int l_index = i * (nperthread * nsorted);              // start of subset 1
+        int r_index = ((i + 2) * nperthread * nsorted) - 1;   // end of subset 2
+        int mid_index = l_index + (nperthread * nsorted) - 1;
+
+        // if subset 2 is the last one and smaller than the others
+        if (r_index >= nrecords) {
+            // correct r_index
+            r_index = nrecords - 1;
+        }
+
+        merge(l_index, mid_index, r_index);
+    }
+
+    if (ntosort / 2 >= 1) {
+        merge_sorted_threads(ntosort / 2, nsorted * 2);
+    }
 }
 
 int main(int argc, char *argv[]){
@@ -111,7 +139,7 @@ int main(int argc, char *argv[]){
 
     // input/output files
     const char *input = argv[1];
-    //const char *output = argv[2];
+    const char *output = argv[2];
 
     // open input file
     int fd = open(input, O_RDONLY);
@@ -135,81 +163,64 @@ int main(int argc, char *argv[]){
         return 1;
     }
 
-    // printf("file size (bytes): %li\n", statbuf.st_size);
-
     // close input file
     close(fd);
 
-    // number of threads
-    int nthreads = get_nprocs();
-    // printf("nthreads: %i\n", nthreads);
-    // thread array
-    pthread_t threads[nthreads];
+    // number of records in input file
+    nrecords = statbuf.st_size/100;
 
-    // array sent to each thread
-    int arrsze = statbuf.st_size/nthreads;
-    rec_t arr [arrsze];
-
-    
-
-    // iterate through input data
-    char *r = ptr;
-    // for each thread,
-    for(int i=0; i<nthreads-1; i++){
-        int idx = 0;
-        // populating input array
-        for (; idx<arrsze; r += 100) {
-
-            // finding keys
-            arr[idx].key = *(int *)r;
-
-            // finding values
-            int value_idx = 0;
-            for(char *v = r+4; v<r+100; v+=4, value_idx++){
-                arr[idx].value[value_idx] = *(int *)v;
-            }
-            idx++;
-        }
-
-        // t_args args;
-        // args.records = &arr;
-        // args.size = arrsze;
-        // creating threads
-        pthread_create(&threads[i], NULL, mergeSort, &arr);
+    // populate input array and send address to global pointer
+    rec_t inputdata[nrecords];
+    int i = 0;
+    for (char *r=ptr; r<(ptr + nrecords*100); r+=100, i++) {
+        inputdata[i].key = *(int *)r;
+        inputdata[i].value = r;
     }
+    records = &inputdata;
 
-    arrsze = statbuf.st_size%nthreads;
-    rec_t lastarr[arrsze];
-    int idx = 0;
-    // populating input array
-    for (; idx<arrsze; r += 100) {
-
-        // finding keys
-        arr[idx].key = *(int *)r;
-
-        // finding values
-        int value_idx = 0;
-        for(char *v = r+4; v<r+100; v+=4, value_idx++){
-            arr[idx].value[value_idx] = *(int *)v;
-        }
-        idx++;
-    }
-
-    pthread_create(&threads[nthreads-1], NULL, mergeSort, &lastarr);
-
-    // rec_t *sorted_recs[nthreads];
-   
-    for (int i = 0; i < nthreads; i++) {
-        // rec_t **sorted_rec;
-        pthread_join(threads[i], NULL);
-        // sorted_recs[i] = sorted_rec;
-    }
     // unmap input data to address space
     err = munmap(ptr, statbuf.st_size);
     if(err != 0){
         printf("UnMapping Failed\n");
         return 1;
     }
+
+    // number of threads
+    nthreads = get_nprocs();
+    // thread array
+    pthread_t threads[nthreads];
+
+    // number of records sent to each thread
+    nperthread = nrecords/nthreads;
+    nlastthread = nrecords%nthreads;
+
+    // create each thread
+    for(int i=0; i<nthreads; i++){
+        pthread_create(&threads[i], NULL, mergeSortHelper, (void *)i);
+    }
+   
+    // wait for them to be over
+    for (int i = 0; i < nthreads; i++) {       
+        pthread_join(threads[i], NULL);
+    }
+    
+    // merge their sorted subsections
+    merge_sorted_threads(nthreads, 1);
+
+    // open output file
+    fd = open(output, O_WRONLY);
+    if(fd < 0){
+        printf("\n\"%s \" could not open\n", output);
+        exit(1);
+    }
+
+    // write to file
+    for(int i=0; i<nrecords; i++){
+        write(fd, (*records)[i].value, 100);
+    }
+
+    // close output file
+    close(fd);
 
     return 0;
 }
