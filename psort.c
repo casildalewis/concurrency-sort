@@ -40,15 +40,12 @@ void merge(rec_t records[], int left, int mid, int right)
   
     // Initial index of merged subarray
     k = left; 
-    while (i < size_left && j < size_right) 
-    {
-        if (L[i].key <= R[j].key) 
-        {
+    while (i < size_left && j < size_right) {
+        if (L[i].key <= R[j].key) {
             records[k] = L[i];
             i++;
         }
-        else 
-        {
+        else {
             records[k] = R[j];
             j++;
         }
@@ -65,18 +62,15 @@ void merge(rec_t records[], int left, int mid, int right)
   
     // Copy the remaining elements of 
     // R[], if there are any 
-    while (j < size_right) 
-    {
+    while (j < size_right) {
         records[k] = R[j];
         j++;
         k++;
     }
 }
-
-void mergeSortHelper (rec_t records[], int l_index, int r_index)
-{
-    if (l_index < r_index) 
-    {
+  
+void mergeSortHelper (rec_t records[], int l_index, int r_index){
+    if (l_index < r_index) {
         int mid_index = (l_index + r_index) / 2;
   
         // Sort first and second halves
@@ -88,13 +82,11 @@ void mergeSortHelper (rec_t records[], int l_index, int r_index)
 }
 
 void *mergeSort(void *record){
-    rec_t records[] = (rec_t *[])record;
+    rec_t *records = (rec_t *)record;
     int r_index = sizeof(records)/sizeof(records[0]);
 
     mergeSortHelper(records, 0, r_index);
-    pthread_exit(&records);
 }
-  
 
 int main(int argc, char *argv[]){
 // wrong invokation
@@ -150,7 +142,7 @@ int main(int argc, char *argv[]){
     for(int i=0; i<nthreads-1; i++){
         int idx = 0;
         // populating input array
-        for (; r < ptr + arrsze * 100, r<ptr+statbuf.st_size*100; r += 100) {
+        for (; idx<arrsze; r += 100) {
 
             // finding keys
             arr[idx].key = *(int *)r;
@@ -167,14 +159,31 @@ int main(int argc, char *argv[]){
         pthread_create(&threads[i], NULL, mergeSort, &arr);
     }
 
+    int arrsze = statbuf.st_size%nthreads;
+    rec_t lastarr[arrsze];
+    int idx = 0;
+    // populating input array
+    for (; idx<arrsze; r += 100) {
+
+        // finding keys
+        arr[idx].key = *(int *)r;
+
+        // finding values
+        int value_idx = 0;
+        for(char *v = r+4; v<r+100; v+=4, value_idx++){
+            arr[idx].value[value_idx] = *(int *)v;
+        }
+        idx++;
+    }
+
+    pthread_create(&threads[nthreads-1], NULL, mergeSort, &lastarr);
+
     rec_t *sorted_recs[nthreads];
    
     for (int i = 0; i < nthreads; i++) {
         rec_t *sorted_rec;
         pthread_join(&threads[i], sorted_rec);
         sorted_recs[i] = sorted_rec;
-    }
-
 
     // unmap input data to address space
     err = munmap(ptr, statbuf.st_size);
