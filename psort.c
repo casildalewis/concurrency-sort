@@ -73,13 +73,6 @@ void merge(rec_t records[], int left, int mid, int right)
     }
 }
 
-void *mergeSort(void *record){
-    rec_t *records = (rec_t *)record;
-    int r_index = sizeof(records)/sizeof(records[0]);
-
-    mergeSortHelper(records, 0, r_index);
-}
-  
 void mergeSortHelper (rec_t records[], int l_index, int r_index)
 {
     if (l_index < r_index) 
@@ -93,6 +86,15 @@ void mergeSortHelper (rec_t records[], int l_index, int r_index)
         merge(records, l_index, mid_index, r_index);
     }
 }
+
+void *mergeSort(void *record){
+    rec_t records[] = (rec_t *[])record;
+    int r_index = sizeof(records)/sizeof(records[0]);
+
+    mergeSortHelper(records, 0, r_index);
+    pthread_exit(&records);
+}
+  
 
 int main(int argc, char *argv[]){
 // wrong invokation
@@ -164,6 +166,15 @@ int main(int argc, char *argv[]){
         // creating threads
         pthread_create(&threads[i], NULL, mergeSort, &arr);
     }
+
+    rec_t *sorted_recs[nthreads];
+   
+    for (int i = 0; i < nthreads; i++) {
+        rec_t *sorted_rec;
+        pthread_join(&threads[i], sorted_rec);
+        sorted_recs[i] = sorted_rec;
+    }
+
 
     // unmap input data to address space
     err = munmap(ptr, statbuf.st_size);
