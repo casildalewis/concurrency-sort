@@ -15,6 +15,11 @@ typedef struct rec {
 } rec_t;
 
 
+typedef struct threadargs {
+    rec_t **records;
+    int size;
+} t_args;
+
 // // Merges two subarrays of arr[].
 // // First subarray is arr[l..m]
 // // Second subarray is arr[m+1..r]
@@ -84,7 +89,7 @@ typedef struct rec {
 
 void *mergeSort(void *record){
     rec_t *records = (rec_t *)record;
-    int r_index = sizeof(records)/sizeof(records[0]);
+    int r_index = sizeof(*records)/sizeof(records[0]);
 
     printf("thread: ");
 
@@ -145,6 +150,8 @@ int main(int argc, char *argv[]){
     int arrsze = statbuf.st_size/nthreads;
     rec_t arr [arrsze];
 
+    
+
     // iterate through input data
     char *r = ptr;
     // for each thread,
@@ -164,6 +171,9 @@ int main(int argc, char *argv[]){
             idx++;
         }
 
+        // t_args args;
+        // args.records = &arr;
+        // args.size = arrsze;
         // creating threads
         pthread_create(&threads[i], NULL, mergeSort, &arr);
     }
@@ -191,7 +201,7 @@ int main(int argc, char *argv[]){
    
     for (int i = 0; i < nthreads; i++) {
         // rec_t **sorted_rec;
-        pthread_join(&threads[i], NULL);
+        pthread_join(threads[i], NULL);
         // sorted_recs[i] = sorted_rec;
     }
     // unmap input data to address space
