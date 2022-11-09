@@ -15,7 +15,7 @@ typedef struct rec {
 } rec_t;
 
 int nperthread, nlastthread, nthreads, nrecords;
-rec_t (*records)[];
+rec_t *records;
 
 // Merges two subarrays of r[].
 // First subarray is r[l..m]
@@ -26,12 +26,15 @@ void merge(int left, int mid, int right)
     int size_left = mid - left + 1;
     int size_right = right - mid;
   
-    rec_t L[size_left], R[size_right];
+    rec_t *L = (rec_t *) malloc(size_left*sizeof(rec_t)); 
+    rec_t *R = (rec_t *) malloc(size_right*sizeof(rec_t)); ;
   
     for (i = 0; i < size_left; i++)
-        L[i] = (*records)[left + i];
+        // L[i] = records[left + i];
+        memcpy(&L[i], &(records[left + i]), sizeof(rec_t));
     for (j = 0; j < size_right; j++)
-        R[j] = (*records)[mid + 1 + j];
+        // R[j] = records[mid + 1 + j];
+        memcpy(&R[j], &(records[mid + 1 + j]), sizeof(rec_t));
   
     // Merge the temp arrays back into records[l..r]
 
@@ -45,19 +48,19 @@ void merge(int left, int mid, int right)
     k = left; 
     while (i < size_left && j < size_right) {
         if (L[i].key < R[j].key) {
-            (*records)[k] = L[i];
+            records[k] = L[i];
             i++;
         }
         else if (L[i].key > R[j].key){
-            (*records)[k] = R[j];
+            records[k] = R[j];
             j++;
         } else{
-            (*records)[k] = L[i];
+            records[k] = L[i];
             i++;
 
             k++;
 
-            (*records)[k] = R[j];
+            records[k] = R[j];
             j++;
         }
         k++;
@@ -66,7 +69,7 @@ void merge(int left, int mid, int right)
     // Copy the remaining elements 
     // of L[], if there are any
     while (i < size_left) {
-        (*records)[k] = L[i];
+        records[k] = L[i];
         i++;
         k++;
     }
@@ -74,7 +77,7 @@ void merge(int left, int mid, int right)
     // Copy the remaining elements of 
     // R[], if there are any 
     while (j < size_right) {
-        (*records)[k] = R[j];
+        records[k] = R[j];
         j++;
         k++;
     }
@@ -104,7 +107,7 @@ void * mergeSortHelper(void *arg){
 
     // printf("\n unsorted thread %li: ", tnum);
     // for(int i=l_index; i<r_index; i++){
-    //     printf("%i ", (*records)[i].key);
+    //     printf("%i ", records[i].key);
     // }
     // printf("\n");
 
@@ -113,7 +116,7 @@ void * mergeSortHelper(void *arg){
 
     // printf("\nsorted thread %li: ", tnum);
     // for(int i=l_index; i<r_index; i++){
-    //     printf("%i ", (*records)[i].key);
+    //     printf("%i ", records[i].key);
     // }
     // printf("\n");
     
@@ -121,7 +124,7 @@ void * mergeSortHelper(void *arg){
 }
 
 void mergeSortedThreads(int ntosort, int nsorted){
-
+    
     // pairwise sorting for the subsets of the array
     for(int i = 0; i < ntosort; i = i + 2) {
         int l_index = i * (nperthread * nsorted);              // start of subset 1
@@ -130,12 +133,12 @@ void mergeSortedThreads(int ntosort, int nsorted){
 
         // printf("\nsorted subset: ");
         // for(int i=l_index; i<mid_index; i++){
-        //     printf("%i ", (*records)[i].key);
+        //     printf("%i ", records[i].key);
         // }
         // printf("\n");
         // printf("\nsorted subset: ");
         // for(int i=mid_index; i<r_index; i++){
-        //     printf("%i ", (*records)[i].key);
+        //     printf("%i ", records[i].key);
         // }
         // printf("\n");
 
@@ -165,6 +168,8 @@ int main(int argc, char *argv[]){
     const char *input = argv[1];
     const char *output = argv[2];
 
+    // printf("opening input file\n");
+
     // open input file
     int ifd = open(input, O_RDONLY);
     if(ifd < 0){
@@ -182,6 +187,8 @@ int main(int argc, char *argv[]){
         exit(0);
     }
 
+    // printf("stored input in buffer\n");
+
     // map input data to address space
     char *ptr = mmap(NULL,statbuf.st_size,PROT_READ,MAP_SHARED,ifd,0);
     if(ptr == MAP_FAILED){
@@ -190,6 +197,8 @@ int main(int argc, char *argv[]){
         exit(0);
     }
 
+    // printf("about to close input file\n");
+
     // close input file
     close(ifd);
 
@@ -197,21 +206,25 @@ int main(int argc, char *argv[]){
     nrecords = statbuf.st_size/100;
 
     // populate input array and send address to global pointer
-    rec_t inputdata[nrecords];
+    rec_t *inputdata = (rec_t *)malloc(statbuf.st_size);
     int i = 0;
     // printf("input keys:");
     for (char *r=ptr; r<(ptr + nrecords*100); r+=100, i++) {
-        inputdata[i].key = *(int *)r;
+        // inputdata[i].key = *(int *)r;
+        memcpy(&(inputdata[i].key), (int *)r, 4);
         // finding values
         int value_idx = 0;
         for(char *v = r+4; v<r+100; v+=4, value_idx++){
-            inputdata[i].value[value_idx] = *(int *)v;
+            // inputdata[i].value[value_idx] = *(int *)v;
+            memcpy(&(inputdata[i].value[value_idx]), (int *)v, 4);
         }
 
         // printf("%i ", inputdata[i].key);
     }
     // printf("\n");
-    records = &inputdata;
+    records = inputdata;
+
+    // printf("populated array\n");
 
     // unmap input data from address space
     err = munmap(ptr, statbuf.st_size);
@@ -220,6 +233,8 @@ int main(int argc, char *argv[]){
         fprintf(stderr, "An error has occurred\n");
         exit(0);
     }
+
+    // printf("unmapped input file\n");
 
     // number of threads
     nthreads = get_nprocs();
@@ -230,6 +245,7 @@ int main(int argc, char *argv[]){
     nperthread = nrecords/nthreads;
     nlastthread = nrecords%nthreads;
 
+    // printf("threads started\n");
     // create each thread
     for(long i=0; i<nthreads; i++){
         pthread_create(&threads[i], NULL, mergeSortHelper, (void *)i);
@@ -239,15 +255,21 @@ int main(int argc, char *argv[]){
     for (int i = 0; i < nthreads; i++) {       
         pthread_join(threads[i], NULL);
     }
+
+    // printf("threads over\n");
     
     // merge their sorted subsections
     mergeSortedThreads(nthreads, 1);
 
+    // printf("merged subsections\n");
+
     // printf("\nsorted: ");
     // for(int i=0; i<nrecords; i++){
-    //     printf("%i ", (*records)[i].key);
+    //     printf("%i ", records[i].key);
     // }
     // printf("\n");
+
+    // fprintf(stderr, "About to write\n");
 
     // open output file
     int ofd = open(output, O_RDWR | O_CREAT | O_TRUNC, (mode_t)0600);
@@ -258,15 +280,8 @@ int main(int argc, char *argv[]){
     }
 
     // Stretch the file size
-    if (lseek(ofd, nrecords*100 + 1, SEEK_SET) == -1){
-        close(ofd);
-        // printf("Error calling lseek() to 'stretch' the output file\n");
-        fprintf(stderr, "An error has occurred\n");
-        exit(0);
-    }
-    if (write(ofd, "", 1) == -1){
-        close(ofd);
-        // printf("Error writing last byte of the output file");
+    err = ftruncate(ofd, nrecords*100 + 1);
+    if(err != 0){
         fprintf(stderr, "An error has occurred\n");
         exit(0);
     }
@@ -282,10 +297,10 @@ int main(int argc, char *argv[]){
     // write to file
     int ptridx = 0;
     for(int i=0; i<nrecords; i++){
-        ptr[ptridx] = (*records)[i].key;
+        ptr[ptridx] = records[i].key;
         ptridx+=4;
         for(int j=0; j<24; j++, ptridx+=4){
-           ptr[ptridx] = (*records)[i].value[j];
+           ptr[ptridx] = records[i].value[j];
         }
     }
 
