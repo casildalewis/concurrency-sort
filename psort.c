@@ -81,6 +81,9 @@ void merge(int left, int mid, int right)
         j++;
         k++;
     }
+
+    free(L);
+    free(R);
 }
   
 void mergeSort (int l_index, int r_index){
@@ -105,21 +108,9 @@ void * mergeSortHelper(void *arg){
         r_index+=nlastthread;
     }
 
-    // printf("\n unsorted thread %li: ", tnum);
-    // for(int i=l_index; i<r_index; i++){
-    //     printf("%i ", records[i].key);
-    // }
-    // printf("\n");
-
     //merge sort only a given subset of the array
     mergeSort(l_index, r_index);
 
-    // printf("\nsorted thread %li: ", tnum);
-    // for(int i=l_index; i<r_index; i++){
-    //     printf("%i ", records[i].key);
-    // }
-    // printf("\n");
-    
     return NULL;
 }
 
@@ -130,17 +121,6 @@ void mergeSortedThreads(int ntosort, int nsorted){
         int l_index = i * (nperthread * nsorted);              // start of subset 1
         int r_index = ((i + 2) * nperthread * nsorted) - 1;   // end of subset 2
         int mid_index = l_index + (nperthread * nsorted) - 1;
-
-        // printf("\nsorted subset: ");
-        // for(int i=l_index; i<mid_index; i++){
-        //     printf("%i ", records[i].key);
-        // }
-        // printf("\n");
-        // printf("\nsorted subset: ");
-        // for(int i=mid_index; i<r_index; i++){
-        //     printf("%i ", records[i].key);
-        // }
-        // printf("\n");
 
         // if subset 2 is the last one and smaller than the others
         if (r_index >= nrecords) {
@@ -159,7 +139,6 @@ void mergeSortedThreads(int ntosort, int nsorted){
 int main(int argc, char *argv[]){
 // wrong invokation
     if(argc!=3){
-        // printf("Wrong number of args\n");
         fprintf(stderr, "An error has occurred\n");
         exit(0);
     }
@@ -168,12 +147,9 @@ int main(int argc, char *argv[]){
     const char *input = argv[1];
     const char *output = argv[2];
 
-    // printf("opening input file\n");
-
     // open input file
     int ifd = open(input, O_RDONLY);
     if(ifd < 0){
-        // printf("\n\"%s \" could not open\n", input);
         fprintf(stderr, "An error has occurred\n");
         exit(0);
     }
@@ -182,22 +158,16 @@ int main(int argc, char *argv[]){
     struct stat statbuf;
     int err = fstat(ifd, &statbuf);
     if(err < 0){
-        // printf("\n\"%s \" could not open\n", input);
         fprintf(stderr, "An error has occurred\n");
         exit(0);
     }
-
-    // printf("stored input in buffer\n");
 
     // map input data to address space
     char *ptr = mmap(NULL,statbuf.st_size,PROT_READ,MAP_SHARED,ifd,0);
     if(ptr == MAP_FAILED){
-        // printf("Mapping Input Failed\n");
         fprintf(stderr, "An error has occurred\n");
         exit(0);
     }
-
-    // printf("about to close input file\n");
 
     // close input file
     close(ifd);
@@ -208,33 +178,23 @@ int main(int argc, char *argv[]){
     // populate input array and send address to global pointer
     rec_t *inputdata = (rec_t *)malloc(statbuf.st_size);
     int i = 0;
-    // printf("input keys:");
     for (char *r=ptr; r<(ptr + nrecords*100); r+=100, i++) {
-        // inputdata[i].key = *(int *)r;
+        // finding key
         memcpy(&(inputdata[i].key), (int *)r, 4);
         // finding values
         int value_idx = 0;
         for(char *v = r+4; v<r+100; v+=4, value_idx++){
-            // inputdata[i].value[value_idx] = *(int *)v;
             memcpy(&(inputdata[i].value[value_idx]), (int *)v, 4);
         }
-
-        // printf("%i ", inputdata[i].key);
     }
-    // printf("\n");
     records = inputdata;
-
-    // printf("populated array\n");
 
     // unmap input data from address space
     err = munmap(ptr, statbuf.st_size);
     if(err != 0){
-        // printf("UnMapping Failed\n");
         fprintf(stderr, "An error has occurred\n");
         exit(0);
     }
-
-    // printf("unmapped input file\n");
 
     // number of threads
     nthreads = get_nprocs();
@@ -245,7 +205,6 @@ int main(int argc, char *argv[]){
     nperthread = nrecords/nthreads;
     nlastthread = nrecords%nthreads;
 
-    // printf("threads started\n");
     // create each thread
     for(long i=0; i<nthreads; i++){
         pthread_create(&threads[i], NULL, mergeSortHelper, (void *)i);
@@ -255,21 +214,9 @@ int main(int argc, char *argv[]){
     for (int i = 0; i < nthreads; i++) {       
         pthread_join(threads[i], NULL);
     }
-
-    // printf("threads over\n");
     
     // merge their sorted subsections
     mergeSortedThreads(nthreads, 1);
-
-    // printf("merged subsections\n");
-
-    // printf("\nsorted: ");
-    // for(int i=0; i<nrecords; i++){
-    //     printf("%i ", records[i].key);
-    // }
-    // printf("\n");
-
-    // fprintf(stderr, "About to write\n");
 
     // open output file
     FILE *fd = fopen(output, "w");
@@ -278,7 +225,7 @@ int main(int argc, char *argv[]){
         exit(0);
     }
 
-    // write to file
+    // write to output file
     for(int i=0; i<nrecords; i++){
         fwrite(&(records[i].key), 4, 1, fd);
         fwrite(records[i].value, 4, 24, fd);
@@ -287,57 +234,7 @@ int main(int argc, char *argv[]){
     // close output file
     fclose(fd);
 
-    // // open output file
-    // int ofd = open(output, O_RDWR | O_CREAT | O_TRUNC, (mode_t)0600);
-    // if(ofd < 0){
-    //     // printf("\n\"%s \" could not open\n", output);
-    //     fprintf(stderr, "An error has occurred\n");
-    //     exit(0);
-    // }
-
-    // // Stretch the file size
-    // err = ftruncate(ofd, nrecords*100 + 1);
-    // if(err != 0){
-    //     fprintf(stderr, "An error has occurred\n");
-    //     exit(0);
-    // }
-
-    // // map output file
-    // ptr = mmap(NULL, nrecords*100+1, PROT_READ | PROT_WRITE, MAP_SHARED, ofd, 0);
-    // if(ptr == MAP_FAILED){
-    //     // printf("Mapping Output Failed\n");
-    //     fprintf(stderr, "An error has occurred\n");
-    //     exit(0);
-    // }
-
-    // // write to file
-    // int ptridx = 0;
-    // for(int i=0; i<nrecords; i++){
-    //     ptr[ptridx] = records[i].key;
-    //     ptridx+=4;
-    //     for(int j=0; j<24; j++, ptridx+=4){
-    //        ptr[ptridx] = records[i].value[j];
-    //     }
-    // }
-
-    // // sync file to disk
-    // if(fsync(ofd)!=0){
-    //     close(ofd);
-    //     // printf("Output Sync Failed\n");
-    //     fprintf(stderr, "An error has occurred\n");
-    //     exit(0);
-    // }
-
-    // // unmap output data to address space
-    // err = munmap(ptr, nrecords*100+1);
-    // if(err != 0){
-    //     // printf("UnMapping Failed\n");
-    //     fprintf(stderr, "An error has occurred\n");
-    //     exit(0);
-    // }
-
-    // // close output file
-    // close(ofd);
+    free(inputdata);
 
     return 0;
 }
