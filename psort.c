@@ -272,56 +272,72 @@ int main(int argc, char *argv[]){
     // fprintf(stderr, "About to write\n");
 
     // open output file
-    int ofd = open(output, O_RDWR | O_CREAT | O_TRUNC, (mode_t)0600);
-    if(ofd < 0){
-        // printf("\n\"%s \" could not open\n", output);
-        fprintf(stderr, "An error has occurred\n");
-        exit(0);
-    }
-
-    // Stretch the file size
-    err = ftruncate(ofd, nrecords*100 + 1);
-    if(err != 0){
-        fprintf(stderr, "An error has occurred\n");
-        exit(0);
-    }
-
-    // map output file
-    ptr = mmap(NULL, nrecords*100+1, PROT_READ | PROT_WRITE, MAP_SHARED, ofd, 0);
-    if(ptr == MAP_FAILED){
-        // printf("Mapping Output Failed\n");
+    FILE *fd = fopen(output, "w");
+    if(!fd){
         fprintf(stderr, "An error has occurred\n");
         exit(0);
     }
 
     // write to file
-    int ptridx = 0;
     for(int i=0; i<nrecords; i++){
-        ptr[ptridx] = records[i].key;
-        ptridx+=4;
-        for(int j=0; j<24; j++, ptridx+=4){
-           ptr[ptridx] = records[i].value[j];
-        }
-    }
-
-    // sync file to disk
-    if(fsync(ofd)!=0){
-        close(ofd);
-        // printf("Output Sync Failed\n");
-        fprintf(stderr, "An error has occurred\n");
-        exit(0);
-    }
-
-    // unmap output data to address space
-    err = munmap(ptr, nrecords*100+1);
-    if(err != 0){
-        // printf("UnMapping Failed\n");
-        fprintf(stderr, "An error has occurred\n");
-        exit(0);
+        fwrite(&(records[i].key), 4, 1, fd);
+        fwrite(records[i].value, 4, 24, fd);
     }
 
     // close output file
-    close(ofd);
+    fclose(fd);
+
+    // // open output file
+    // int ofd = open(output, O_RDWR | O_CREAT | O_TRUNC, (mode_t)0600);
+    // if(ofd < 0){
+    //     // printf("\n\"%s \" could not open\n", output);
+    //     fprintf(stderr, "An error has occurred\n");
+    //     exit(0);
+    // }
+
+    // // Stretch the file size
+    // err = ftruncate(ofd, nrecords*100 + 1);
+    // if(err != 0){
+    //     fprintf(stderr, "An error has occurred\n");
+    //     exit(0);
+    // }
+
+    // // map output file
+    // ptr = mmap(NULL, nrecords*100+1, PROT_READ | PROT_WRITE, MAP_SHARED, ofd, 0);
+    // if(ptr == MAP_FAILED){
+    //     // printf("Mapping Output Failed\n");
+    //     fprintf(stderr, "An error has occurred\n");
+    //     exit(0);
+    // }
+
+    // // write to file
+    // int ptridx = 0;
+    // for(int i=0; i<nrecords; i++){
+    //     ptr[ptridx] = records[i].key;
+    //     ptridx+=4;
+    //     for(int j=0; j<24; j++, ptridx+=4){
+    //        ptr[ptridx] = records[i].value[j];
+    //     }
+    // }
+
+    // // sync file to disk
+    // if(fsync(ofd)!=0){
+    //     close(ofd);
+    //     // printf("Output Sync Failed\n");
+    //     fprintf(stderr, "An error has occurred\n");
+    //     exit(0);
+    // }
+
+    // // unmap output data to address space
+    // err = munmap(ptr, nrecords*100+1);
+    // if(err != 0){
+    //     // printf("UnMapping Failed\n");
+    //     fprintf(stderr, "An error has occurred\n");
+    //     exit(0);
+    // }
+
+    // // close output file
+    // close(ofd);
 
     return 0;
 }
